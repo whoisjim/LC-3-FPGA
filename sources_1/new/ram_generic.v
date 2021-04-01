@@ -13,40 +13,44 @@ module ram_generic #(
     reg [WORD_SIZE - 1 : 0] memory [0 : (1 << ADDRESS_SIZE) - 1];
     
     // registers
-    parameter R0 = 3'b000;
-    parameter R1 = 3'b001;
-    parameter R2 = 3'b010;
-    parameter R3 = 3'b011;
-    parameter R4 = 3'b100;
-    parameter R5 = 3'b101;
-    parameter R6 = 3'b110;
-    parameter R7 = 3'b111;
+    localparam R0 = 3'b000;
+    localparam R1 = 3'b001;
+    localparam R2 = 3'b010;
+    localparam R3 = 3'b011;
+    localparam R4 = 3'b100;
+    localparam R5 = 3'b101;
+    localparam R6 = 3'b110;
+    localparam R7 = 3'b111;
 
     // keywords
-    parameter IMM = 1'b1;
-    parameter REG = 3'b000;
-    parameter NEG = 3'b100;
-    parameter ZER = 3'b010;
-    parameter POS = 3'b001;
+    localparam IMM = 1'b1;
+    localparam REG = 3'b000;
+    localparam NEG = 3'b100;
+    localparam ZER = 3'b010;
+    localparam POS = 3'b001;
 
     // instructions
-    parameter BR  =  4'b0000;             // 0
-    parameter ADD =  4'b0001;             // 1
-    parameter LD  =  4'b0010;             // 2
-    parameter ST  =  4'b0011;             // 3
-    parameter JSR =  4'b0100;             // 4
-    parameter AND =  4'b0101;             // 5
-    parameter LDR =  4'b0110;             // 6
-    parameter STR =  4'b0111;             // 7
-    parameter NOT =  4'b1001;             // 9
-    parameter LDI =  4'b1010;             // a
-    parameter STI =  4'b1011;             // b
-    parameter JMP =  4'b1100;             // c
-    parameter RET = 16'b1100000111000000; // c
+    localparam BR  =  4'b0000;             // 0
+    localparam ADD =  4'b0001;             // 1
+    localparam LD  =  4'b0010;             // 2
+    localparam ST  =  4'b0011;             // 3
+    localparam JSR =  4'b0100;             // 4
+    localparam AND =  4'b0101;             // 5
+    localparam LDR =  4'b0110;             // 6
+    localparam STR =  4'b0111;             // 7
+    localparam NOT =  4'b1001;             // 9
+    localparam LDI =  4'b1010;             // a
+    localparam STI =  4'b1011;             // b
+    localparam JMP =  4'b1100;             // c
+    localparam RET = 16'b1100000111000000; // c
                                           // d
-    parameter LEA =  4'b1110;             // e
-    parameter HLT = 16'b1111000000100101; // stop program
-    parameter NOP = 16'b0000000000000000; // jump to curent location
+    localparam LEA =  4'b1110;             // e
+    localparam TRP =  4'b1111;             // f
+    localparam PAS =  9'b000000000;        // wait 1 seccond, 100000000 clocks
+    localparam DSP =  9'b000000001;        // display trap code
+    localparam INP =  9'b000000010;        // get user input
+    localparam HLT = 16'b1111000000100101; // stop program
+    localparam NOP = 16'b0000000000000000; // jump to curent location
 
     // setup initial memory configuration
     /*
@@ -144,7 +148,7 @@ module ram_generic #(
     initial memory[9] = {JMP, 3'b000, R3, 6'b000000}; // c | jump to R3
     */
 
-    ///*
+    /*
     // example
     initial memory[0]  = {LD, R6, 9'b000000011};       // 2 | load program loop start into R6
     initial memory[1]  = {LD, R2, 9'b000000011};       // 2 | load subtract subroutene into R3
@@ -165,7 +169,14 @@ module ram_generic #(
     initial memory[15] = {ADD, R1, R1, IMM, 5'b00001}; // 1 | 
     initial memory[16] = {ADD, R0, R0, REG, R1};       // 1 | subtract
     initial memory[17] = {RET};                        // c | return
-    //*/
+    */
+
+
+    initial memory[0] = {TRP, R0, INP};               // 1 | get input R0
+    initial memory[1] = {TRP, R0, DSP};               //   | display R0
+    initial memory[2] = {TRP, 3'b000, PAS};           //   | wait 1 seccond
+    initial memory[3] = {JMP, 3'b000, R1, 6'b000000}; // c | jump to R1, 0
+    
 
     always @(posedge clock) begin
         if (read == 1'b1) begin 

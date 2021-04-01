@@ -9,8 +9,8 @@ module tb_lc_3();
     
     lc_3 #(16, 16) dut (
         .clock(clock),
-        .reset(reset),
-        .data_bus(data_bus));
+        .reset(reset)
+    );
 
     initial begin
         clock = 1'b0;

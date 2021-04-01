@@ -3,7 +3,8 @@
 module finite_state_machine_controller(
     input clock, reset, flag_negative, flag_zero, flag_positive,
     input [15:0] instruction_register,
-    output reg load_instruction_register, load_program_counter, load_register_file, load_memory_data_register, load_flag_register,
+    input accept,
+    output reg load_instruction_register, load_program_counter, load_register_file, load_memory_data_register, load_flag_register, load_seven_segment_display_register,
     output reg [2:0] register_file_in_address,
     output reg [2:0] register_file_out_a_address,
     output reg [2:0] register_file_out_b_address,
@@ -13,7 +14,7 @@ module finite_state_machine_controller(
     output reg [1:0] address_adder_mux_b_select,
     output reg arithmetic_logic_mux_select,
     output reg [1:0] arithmetic_logic_unit_select,
-    output reg memory_data_buffer_enable, memory_address_buffer_enable, arithmetic_logic_unit_buffer_enable, program_counter_buffer_enable, register_file_out_a_buffer_enable,
+    output reg memory_data_buffer_enable, memory_address_buffer_enable, arithmetic_logic_unit_buffer_enable, program_counter_buffer_enable, register_file_out_a_buffer_enable, switch_input_buffer_enable,
     output reg memory_read_enable, memory_write_enable
     );
 
@@ -26,7 +27,7 @@ module finite_state_machine_controller(
 
     // state registers
     reg [7:0] next_state = 0; // what state it will be at next clock
-    reg [1:0] next_instruction_clock_count = 0; // how many clocks have passed for this instruction
+    reg [63:0] next_instruction_clock_count = 0; // how many clocks have passed for this instruction
 
     always @(negedge clock) begin
         if (reset) begin
@@ -39,6 +40,7 @@ module finite_state_machine_controller(
                 load_register_file = 1'b0;
                 load_memory_data_register = 1'b0;
                 load_flag_register = 1'b0;
+                load_seven_segment_display_register = 1'b0;
 
                 memory_data_buffer_enable = 1'b0;
                 memory_address_buffer_enable = 1'b0;
@@ -58,12 +60,14 @@ module finite_state_machine_controller(
                 load_register_file = 1'b0;
                 load_memory_data_register = 1'b0;
                 load_flag_register = 1'b0;
+                load_seven_segment_display_register = 1'b0;
 
                 memory_data_buffer_enable = 1'b0;
                 memory_address_buffer_enable = 1'b0;
                 arithmetic_logic_unit_buffer_enable = 1'b0;
                 program_counter_buffer_enable = 1'b1;
                 register_file_out_a_buffer_enable = 1'b0;
+                switch_input_buffer_enable = 1'b0;
 
                 memory_read_enable = 1'b1;
                 memory_write_enable = 1'b0;
@@ -626,19 +630,71 @@ module finite_state_machine_controller(
                         next_instruction_clock_count = 0;
                     end
                     4'b1111: begin // trap
-                        load_instruction_register = 1'b0;
-                        load_program_counter = 1'b0;
-                        load_register_file = 1'b0;
-                        load_memory_data_register = 1'b0;
-                        load_flag_register = 1'b0;
+                        case(instruction_register[7:0])
+                            0: begin // wait 1 seccond, 100000000 cycles
+                                if (next_instruction_clock_count == 100000000) begin
+                                    next_instruction_clock_count = 0;
+                                    next_state = SET_INSTRUCTION_ADDRESS;
+                                end else begin
+                                    next_instruction_clock_count = next_instruction_clock_count + 1;
+                                end
+                            end
+                            1: begin // write to seven segment display
+                                register_file_out_a_address = instruction_register[11:9];
+                                
+                                load_instruction_register = 1'b0;
+                                load_program_counter = 1'b0;
+                                load_register_file = 1'b0;
+                                load_memory_data_register = 1'b0;
+                                load_flag_register = 1'b0;
+                                load_seven_segment_display_register = 1'b1;
 
-                        memory_data_buffer_enable = 1'b0;
-                        memory_address_buffer_enable = 1'b0;
-                        arithmetic_logic_unit_buffer_enable = 1'b0;
-                        program_counter_buffer_enable = 1'b0;
-                        register_file_out_a_buffer_enable = 1'b0;
+                                memory_data_buffer_enable = 1'b0;
+                                memory_address_buffer_enable = 1'b0;
+                                arithmetic_logic_unit_buffer_enable = 1'b0;
+                                program_counter_buffer_enable = 1'b0;
+                                register_file_out_a_buffer_enable = 1'b1;
+                        
+                                next_state = SET_INSTRUCTION_ADDRESS;
+                            end
+                            2: begin // get user input
+                                if (accept) begin
+                                    register_file_in_address = instruction_register[11:9];
+                                
+                                    load_instruction_register = 1'b0;
+                                    load_program_counter = 1'b0;
+                                    load_register_file = 1'b1;
+                                    load_memory_data_register = 1'b0;
+                                    load_flag_register = 1'b0;
+                                    load_seven_segment_display_register = 1'b0;
 
-                        next_state = HALT;
+                                    memory_data_buffer_enable = 1'b0;
+                                    memory_address_buffer_enable = 1'b0;
+                                    arithmetic_logic_unit_buffer_enable = 1'b0;
+                                    program_counter_buffer_enable = 1'b0;
+                                    register_file_out_a_buffer_enable = 1'b0;
+                                    switch_input_buffer_enable = 1'b1;
+                        
+                                    next_state = SET_INSTRUCTION_ADDRESS;
+                                end
+                            end
+
+                            default: begin // halt
+                                load_instruction_register = 1'b0;
+                                load_program_counter = 1'b0;
+                                load_register_file = 1'b0;
+                                load_memory_data_register = 1'b0;
+                                load_flag_register = 1'b0;
+
+                                memory_data_buffer_enable = 1'b0;
+                                memory_address_buffer_enable = 1'b0;
+                                arithmetic_logic_unit_buffer_enable = 1'b0;
+                                program_counter_buffer_enable = 1'b0;
+                                register_file_out_a_buffer_enable = 1'b0;
+
+                                next_state = HALT;
+                            end
+                        endcase
                     end
                 endcase
             end

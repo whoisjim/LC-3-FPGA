@@ -1,10 +1,14 @@
 `timescale 1ns / 1ps
 
 module lc_3(
-    input clock, reset,
-    inout [15 : 0] data_bus
+    input clock, reset, accept,
+    input [15:0] switch,
+    output segment_ca, segment_cb, segment_cc, segment_cd, segment_ce, segment_cf, segment_cg, 
+    output [7:0] segment_an
     );
     
+    wire [15 : 0] data_bus;
+
     wire [15 : 0] arithmetic_logic_mux_data;
     wire [15 : 0] arithmetic_logic_unit_data_out;
     wire [15 : 0] register_file_data_a;
@@ -15,6 +19,7 @@ module lc_3(
     wire [15 : 0] immediate_value_9;
     wire [15 : 0] immediate_value_11;
     wire [15 : 0] instruction_register_data_out;
+    wire [15 : 0] seven_segment_display_register_data_out;
 
     wire flag_negative_register_in;
     wire flag_negative_register_out;
@@ -35,7 +40,7 @@ module lc_3(
     wire [15 : 0] memory_out;
     wire [15 : 0] memory_address_register_mux_out;
 
-    wire load_instruction_register, load_program_counter, load_register_file, load_memory_data_register, load_flag_register;
+    wire load_seven_segment_display_register, load_instruction_register, load_program_counter, load_register_file, load_memory_data_register, load_flag_register;
     wire [2:0] register_file_in_address;
     wire [2:0] register_file_out_a_address;
     wire [2:0] register_file_out_b_address;
@@ -50,16 +55,18 @@ module lc_3(
     
     finite_state_machine_controller finite_state_machine_controller (
         .clock(clock),
-        .reset(reset),
+        .reset(~reset),
         .flag_negative(flag_negative_register_out),
         .flag_zero(flag_zero_register_out),
         .flag_positive(flag_positive_register_out),
         .instruction_register(instruction_register_data_out),
+        .accept(accept),
         .load_instruction_register(load_instruction_register),
         .load_program_counter(load_program_counter),
         .load_register_file(load_register_file),
         .load_memory_data_register(load_memory_data_register),
         .load_flag_register(load_flag_register),
+        .load_seven_segment_display_register(load_seven_segment_display_register),
         .register_file_in_address(register_file_in_address),
         .register_file_out_a_address(register_file_out_a_address),
         .register_file_out_b_address(register_file_out_b_address),
@@ -74,6 +81,7 @@ module lc_3(
         .arithmetic_logic_unit_buffer_enable(arithmetic_logic_unit_buffer_enable),
         .program_counter_buffer_enable(program_counter_buffer_enable),
         .register_file_out_a_buffer_enable(register_file_out_a_buffer_enable),
+        .switch_input_buffer_enable(switch_input_buffer_enable),
         .memory_read_enable(memory_read_enable),
         .memory_write_enable(memory_write_enable)
     );
@@ -81,7 +89,7 @@ module lc_3(
     register_file register_file (
         .clock(clock),
         .load(load_register_file),
-        .reset(reset),
+        .reset(~reset),
         .in_address(register_file_in_address),
         .out_address_a(register_file_out_a_address),
         .out_address_b(register_file_out_b_address),
@@ -175,7 +183,7 @@ module lc_3(
     register_generic #(16) program_counter_register (
         .clock(clock),
         .load(load_program_counter), 
-        .reset(reset),
+        .reset(~reset),
         .in_data(program_counter_mux_out),
         .out_data(program_counter_register_out)
     );
@@ -200,7 +208,7 @@ module lc_3(
     register_generic #(1) flag_negative_register (
         .clock(clock),
         .load(load_flag_register), 
-        .reset(reset),
+        .reset(~reset),
         .in_data(flag_negative_register_in),
         .out_data(flag_negative_register_out)
     );
@@ -208,7 +216,7 @@ module lc_3(
     register_generic #(1) flag_zero_register (
         .clock(clock),
         .load(load_flag_register), 
-        .reset(reset),
+        .reset(~reset),
         .in_data(flag_zero_register_in),
         .out_data(flag_zero_register_out)
     );
@@ -216,7 +224,7 @@ module lc_3(
     register_generic #(1) flag_positive_register (
         .clock(clock),
         .load(load_flag_register), 
-        .reset(reset),
+        .reset(~reset),
         .in_data(flag_positive_register_in),
         .out_data(flag_positive_register_out)
     );
@@ -224,7 +232,7 @@ module lc_3(
     register_generic #(16) instruction_register (
         .clock(clock),
         .load(load_instruction_register), 
-        .reset(reset),
+        .reset(~reset),
         .in_data(data_bus),
         .out_data(instruction_register_data_out)
     );
@@ -241,7 +249,7 @@ module lc_3(
     register_generic #(16) memory_data_register (
         .clock(clock),
         .load(load_memory_data_register), 
-        .reset(reset),
+        .reset(~reset),
         .in_data(data_bus),
         .out_data(memory_data_register_out)
     );
@@ -262,6 +270,29 @@ module lc_3(
     tristate_buffer_16 memory_data_buffer (
         .enable(memory_data_buffer_enable),
         .in(memory_out),
+        .out(data_bus)
+    );
+
+    register_generic #(16) seven_segment_display_register (
+        .clock(clock),
+        .load(load_seven_segment_display_register), 
+        .reset(~reset),
+        .in_data(data_bus),
+        .out_data(seven_segment_display_register_data_out)
+    );
+
+    seven_segment_decoder_hex_16 seven_segment_decoder (
+    .clock(clock),
+    .in_data(seven_segment_display_register_data_out),
+    .segments({segment_ca, segment_cb, segment_cc, segment_cd, segment_ce, segment_cf, segment_cg}),
+    .annodes(segment_an[3:0])
+    );
+
+    assign segment_an[7:4] = 4'b1111;
+
+    tristate_buffer_16 switch_input_buffer (
+        .enable(switch_input_buffer_enable),
+        .in(switch),
         .out(data_bus)
     );
     
